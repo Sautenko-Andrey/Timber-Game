@@ -1,0 +1,55 @@
+# General build files
+*.o
+*.a
+*.so
+*.dll
+*.exe
+*.out
+*.dSYM/
+*.obj
+
+# CMake specific files
+CMakeCache.txt
+CMakeFiles/
+CMakeLists.txt.user
+Makefile
+makefile
+
+# IDE-specific files
+# For Visual Studio Code
+.vscode/
+
+# For CLion
+.idea/
+
+# For Eclipse
+.settings/
+
+# For JetBrains IDEs (e.g. CLion, IntelliJ)
+.idea/
+
+# macOS specific files
+.DS_Store
+
+# Linux-specific files
+*~
+
+# Qt Creator
+*.pro.user
+*.pro.user.*
+
+# Compiled binary files
+*.bin
+
+# Debug / Release directories
+build/
+debug/
+release/
+
+# Generated project files
+*.cmake
+*.ninja
+*.gen
+
+# Ignore all text files
+*.txt
