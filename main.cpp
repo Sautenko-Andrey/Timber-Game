@@ -118,6 +118,24 @@ int main(){
     // Variables to control time itself
     sf::Clock clock;
 
+    // Timebar
+    sf::RectangleShape time_bar;
+    double time_bar_start_width = 400.0;
+    double time_bar_height = 80.0;
+    time_bar.setSize(sf::Vector2f(
+        time_bar_start_width,
+        time_bar_height
+    ));
+    time_bar.setFillColor(sf::Color::Red);
+    time_bar.setPosition(
+        (static_cast<int>(Coordinates::ScreenWidth) / 2) - time_bar_start_width /2,
+        680
+    );
+
+    sf::Time game_time_total;
+    double time_remaining = 6.0;
+    double time_bar_width_pre_second = time_bar_start_width / time_remaining;
+
     // Track whether the game is running
     bool paused = true;
 
@@ -178,6 +196,10 @@ int main(){
             // When user presses Enter/Return it means he wants
             // to pause the game
             paused = false;
+
+            // Reset the time and the score
+            score = 0;
+            time_remaining = 6;
         }
 
 
@@ -186,6 +208,38 @@ int main(){
         if(!paused){
             // Measure time
             sf::Time dt = clock.restart();
+
+            // Subtract from the amount of time remaining
+            time_remaining -= dt.asSeconds();
+
+            // Size up the time bar
+            time_bar.setSize(
+                sf::Vector2f(
+                    time_bar_width_pre_second * time_remaining,
+                    time_bar_height
+                )
+            );
+
+            // When time is over
+            if(time_remaining <= 0.0){
+                // Pause the game
+                paused = true;
+
+                // Change the message shown to the player
+                message_text.setString("Out of time!!");
+
+                // Reposition the text based on its new size
+                sf::FloatRect text_rect = message_text.getLocalBounds();
+                message_text.setOrigin(
+                    text_rect.left + text_rect.width / 2.0,
+                    text_rect.top + text_rect.height / 2.0
+                );
+
+                message_text.setPosition(
+                    static_cast<int>(Coordinates::ScreenWidth) / 2,
+                    static_cast<int>(Coordinates::ScreenHeight) / 2
+                );
+            }
 
             // Setup the bee
             if (!bee_is_active){
@@ -343,6 +397,9 @@ int main(){
 
         // Draw the score
         window.draw(score_text);
+
+        // Draw the timebar
+        window.draw(time_bar);
 
         if(paused){
             // Draw our message
