@@ -14,6 +14,22 @@ enum class Coordinates {
     ScreenHeight = 768
 };
 
+
+// Function declaration
+void updateBranches(int seed);
+
+constexpr int NUM_BRANCHES = 6;
+
+sf::Sprite branches[NUM_BRANCHES];
+
+// Where is the player/branch?
+// Left or Right
+enum class Side{Left, Right, None};
+
+Side branch_positions[NUM_BRANCHES];
+
+
+
 int main(){
 
     // Create a video mode object
@@ -178,6 +194,65 @@ int main(){
     );
 
     score_text.setPosition(20, 20);
+
+    // Prepare 5 branches
+    sf::Texture texture_branch;
+    texture_branch.loadFromFile("graphics/branch.png");
+
+    // Set the texture for each branch sprite
+    for(int i{0}; i < NUM_BRANCHES; ++i){
+        branches[i].setTexture(texture_branch);
+        branches[i].setPosition(-2000, -2000);
+
+        // Set the sprite's origin to dead centre
+        // We can then spin it round without changing its position
+        branches[i].setOrigin(220, 20);
+    }
+
+    // Prepare the player
+    sf::Texture texture_player;
+    texture_player.loadFromFile("graphics/player.png");
+    sf::Sprite sprite_player;
+    sprite_player.setTexture(texture_player);
+    sprite_player.setPosition(370, 350);
+
+    // The player starts on the left
+    Side player_side = Side::Left;
+
+    // Prepare the gravestone
+    sf::Texture texture_rip;
+    texture_rip.loadFromFile("graphics/rip.png");
+    sf::Sprite sprite_rip;
+    sprite_rip.setTexture(texture_rip);
+    sprite_rip.setPosition(400, 500);
+
+    // Prepare the axe
+    sf::Texture texture_axe;
+    texture_axe.loadFromFile("graphics/axe.png");
+    sf::Sprite sprite_axe;
+    sprite_axe.setTexture(texture_axe);
+    sprite_axe.setPosition(645, 490);
+    sprite_axe.setRotation(180);
+
+    // Line the axe up with the tree
+    constexpr double AXE_POSITION_LEFT = 700;
+    constexpr double AXE_POSITION_RIGHT = 1075;
+
+    // Prepare the flying log
+    sf::Texture texture_log;
+    texture_log.loadFromFile("graphics/log.png");
+    sf::Sprite sprite_log;
+    sprite_log.setTexture(texture_log);
+    sprite_log.setPosition(810, 600);
+
+    // Some other useful log related variables
+    bool log_is_active = false;
+    double log_speed_x = 1000;
+    double log_speed_y = -1500;
+
+    // Control the player input
+    bool accept_input = false;
+
 
     // Game loop
     while (window.isOpen()){
@@ -374,6 +449,27 @@ int main(){
             ss << "Score = " << score;
             score_text.setString(ss.str());
 
+            // Update the brunch sprites
+            for(int i{0}; i < NUM_BRANCHES; ++i){
+                double height = i * 100;
+                if(branch_positions[i] == Side::Left){
+                    // Move the sprite to the left side
+                    branches[i].setPosition(375, height);
+                    // Flip the sprite round the other way
+                    branches[i].setRotation(180);
+                }
+                else if(branch_positions[i] == Side::Right){
+                    // Move the sprite to the right side
+                    branches[i].setPosition(990, height);
+                    // Set the sprite rotation to normal
+                    branches[i].setRotation(0);
+                }
+                else{
+                    // Hide the branch
+                    branches[i].setPosition(3000, height);
+                }
+            }
+
         }// End if(!paused)
         
 
@@ -389,8 +485,25 @@ int main(){
         window.draw(sprite_cloud_2);
         window.draw(sprite_cloud_3);
 
+        // Draw the branches
+        for(int i{0}; i < NUM_BRANCHES; ++i){
+            window.draw(branches[i]);
+        }
+
         // Draw the tree
         window.draw(sprite_tree);
+
+        // Draw the player
+        window.draw(sprite_player);
+
+        // Draw the axe
+        window.draw(sprite_axe);
+
+        // Draw the flying log
+        window.draw(sprite_log);
+
+        // Draw the gravestone
+        window.draw(sprite_rip);
 
         // Draw the bee
         window.draw(sprite_bee);
@@ -411,5 +524,32 @@ int main(){
     }
 
     return 0;
+}
 
+
+// Move all the branches down one place
+void updateBranches(int seed){
+    for(int j = NUM_BRANCHES - 1; j > 0; --j){
+        branch_positions[j] = branch_positions[j - 1];
+    }
+
+    // Spawn a new branch at position 0
+    // LEFT, RIGHT or NONE
+    srand((int)time(0) + seed);
+    int r = (rand() % 5);
+
+    switch (r)
+    {
+    case 0:
+        branch_positions[0] = Side::Left;
+        break;
+
+    case 1:
+        branch_positions[0] = Side::Right;
+        break;
+    
+    default:
+        branch_positions[0] = Side::None;
+        break;
+    }
 }
