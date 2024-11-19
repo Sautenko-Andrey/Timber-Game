@@ -1,4 +1,5 @@
 #include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp>
 #include <sstream>
 
 enum class Coordinates {
@@ -11,7 +12,8 @@ enum class Coordinates {
     CloudHorizontalPos = 0,
     CloudVerticalPos = 0,
     ScreenWidth = 1366,
-    ScreenHeight = 768
+    ScreenHeight = 768,
+    FlyLogVerticalPos = 465
 };
 
 
@@ -21,6 +23,14 @@ void updateBranches(int seed);
 constexpr int NUM_BRANCHES = 6;
 
 sf::Sprite branches[NUM_BRANCHES];
+
+constexpr int NUM_CLOUDS = 3;
+
+sf::Sprite clouds[NUM_CLOUDS];
+
+bool clouds_active[NUM_CLOUDS];
+
+double cloud_speed[NUM_CLOUDS];
 
 // Where is the player/branch?
 // Left or Right
@@ -97,39 +107,20 @@ int main(){
     sf::Texture texture_cloud;
     texture_cloud.loadFromFile("graphics/cloud.png");
 
-    // 3 sprites with the same texture
-    sf::Sprite sprite_cloud_1;
-    sf::Sprite sprite_cloud_2;
-    sf::Sprite sprite_cloud_3;
+    for(int i{0}, j{0}; i < NUM_CLOUDS; ++i){
+        clouds[i].setTexture(texture_cloud);
+        clouds[i].setPosition(
+            static_cast<int>(Coordinates::CloudHorizontalPos),
+            static_cast<int>(Coordinates::CloudVerticalPos) + j
+        );
 
-    sprite_cloud_1.setTexture(texture_cloud);
-    sprite_cloud_2.setTexture(texture_cloud);
-    sprite_cloud_3.setTexture(texture_cloud);
+        j += 250;
 
-    // Position the clouds on the left of the screen
-    // at different heights
-    sprite_cloud_1.setPosition(
-        static_cast<int>(Coordinates::CloudHorizontalPos),
-        static_cast<int>(Coordinates::CloudVerticalPos)
-    );
-    sprite_cloud_2.setPosition(
-        static_cast<int>(Coordinates::CloudHorizontalPos),
-        static_cast<int>(Coordinates::CloudVerticalPos) + 250
-    );
-    sprite_cloud_3.setPosition(
-        static_cast<int>(Coordinates::CloudHorizontalPos),
-        static_cast<int>(Coordinates::CloudVerticalPos) + 500
-    );
+        clouds_active[i] = false;
 
-    // Are the clouds currently on screen?
-    bool cloud_1_is_active = false;
-    bool cloud_2_is_active = false;
-    bool cloud_3_is_active = false;
+        cloud_speed[i] = 0.0;
 
-    // How fast is each cloud?
-    double cloud_1_speed = 0.0;
-    double cloud_2_speed = 0.0;
-    double cloud_3_speed = 0.0;
+    }
 
     // Variables to control time itself
     sf::Clock clock;
@@ -236,14 +227,14 @@ int main(){
 
     // Line the axe up with the tree
     constexpr double AXE_POSITION_LEFT = 700;
-    constexpr double AXE_POSITION_RIGHT = 1075;
+    constexpr double AXE_POSITION_RIGHT = 850;
 
     // Prepare the flying log
     sf::Texture texture_log;
     texture_log.loadFromFile("graphics/log.png");
     sf::Sprite sprite_log;
     sprite_log.setTexture(texture_log);
-    sprite_log.setPosition(810, 600);
+    sprite_log.setPosition(2100, 2100);
 
     // Some other useful log related variables
     bool log_is_active = false;
@@ -253,12 +244,40 @@ int main(){
     // Control the player input
     bool accept_input = false;
 
+    // Prepare the sound
+    sf::SoundBuffer chop_buffer;
+    chop_buffer.loadFromFile("sound/chop.wav");
+    sf::Sound chop;
+    chop.setBuffer(chop_buffer);
+
+    sf::SoundBuffer death_buffer;
+    death_buffer.loadFromFile("sound/death.wav");
+    sf::Sound death;
+    death.setBuffer(death_buffer);
+
+    sf::SoundBuffer out_of_time_buffer;
+    out_of_time_buffer.loadFromFile("sound/out_of_time.wav");
+    sf::Sound out_of_time;
+    out_of_time.setBuffer(out_of_time_buffer);
+
 
     // Game loop
     while (window.isOpen()){
         // Handle player's input
+        sf::Event event;
+        
+        while(window.pollEvent(event)){
+            if(event.type == sf::Event::KeyReleased && !paused){
+                // Listen for key presses again
+                accept_input = true;
 
-        //..........code................//
+                // hide the axe
+                sprite_axe.setPosition(
+                    2000,
+                    sprite_axe.getPosition().y
+                );
+            }
+        }
 
         if(sf::Keyboard::isKeyPressed(sf::Keyboard::Escape)){
             // When user presses Esc it means he wants to quit the game
@@ -275,6 +294,92 @@ int main(){
             // Reset the time and the score
             score = 0;
             time_remaining = 6;
+
+            // Make all the branches disappear
+            for(int i{0}; i < NUM_BRANCHES; ++i){
+                branch_positions[i] = Side::None;
+            }
+
+            // Make sure the gravestone is hidden
+            sprite_rip.setPosition(2000, 2000);
+
+            // Move the player into position
+            //sprite_player.setPosition(580, 500);
+
+            accept_input = true;
+        }
+
+        // Wrap the player controls to
+        // Make sure we are accepting input
+        if (accept_input){
+            // More code here next...
+            // First handle pressing the right cursor key
+            if(sf::Keyboard::isKeyPressed(sf::Keyboard::Right)){
+                // Make sure the player is on the right
+                player_side = Side::Right;
+
+                ++score;
+
+                // Add to the amount of time remaining
+                time_remaining += (2 / score) + 0.15;
+
+                sprite_axe.setPosition(
+                    AXE_POSITION_RIGHT,
+                    sprite_axe.getPosition().y
+                );
+
+                sprite_player.setPosition(810, 350);
+
+                // Update the branches
+                updateBranches(score);
+
+                // Set the log flying to the left
+                sprite_log.setPosition(
+                    static_cast<int>(Coordinates::TreeHorizontalPos),
+                    static_cast<int>(Coordinates::FlyLogVerticalPos)
+                );
+                log_speed_x = -5000;
+                log_is_active = true;
+
+                accept_input = false;
+
+                // Play a chop sound
+                chop.play();
+            }
+
+            // Handle the left cursor key
+            if(sf::Keyboard::isKeyPressed(sf::Keyboard::Left)){
+                // Make sure the player is on the left
+                player_side = Side::Left;
+                ++score;
+
+                // Add to the amount of time remaining
+                time_remaining += (2 / score) + 0.15;
+
+                sprite_axe.setPosition(
+                    AXE_POSITION_LEFT,
+                    sprite_axe.getPosition().y
+                );
+
+                sprite_player.setPosition(410, 350);
+
+                // update the branches
+                updateBranches(score);
+
+                // set the log flying
+                sprite_log.setPosition(
+                    static_cast<int>(Coordinates::TreeHorizontalPos),
+                    static_cast<int>(Coordinates::FlyLogVerticalPos)
+                );
+
+                log_speed_x = 5000;
+                log_is_active = true;
+
+                accept_input = false;
+
+                // Play a chop sound
+                chop.play();
+            }
         }
 
 
@@ -314,6 +419,9 @@ int main(){
                     static_cast<int>(Coordinates::ScreenWidth) / 2,
                     static_cast<int>(Coordinates::ScreenHeight) / 2
                 );
+
+                // Play the out of time sound
+                out_of_time.play();
             }
 
             // Setup the bee
@@ -356,91 +464,37 @@ int main(){
             }
 
             // Manage the clouds
-            // Cloud 1
-            if(!cloud_1_is_active){
+            for(int i{0}, j{0}, k{150}, m{10}; i < NUM_CLOUDS; ++i){
+                if(!clouds_active[i]){
+                    // How fast is the cloud
+                    srand((int)time(0) * m);
 
-                // How fast is the cloud
-                srand((int)time(0) * 10);
+                    // Speed is between 0 and 199 pixels
+                    cloud_speed[i] = (rand() % 200);
 
-                // Speed is between 0 and 199 pixels
-                cloud_1_speed = (rand() % 200);
+                    // How high is the cloud
+                    srand((int)time(0) * 10);
+                    double height = (rand() % k) - j;
+                    clouds[i].setPosition(-200, height);
+                    clouds_active[i] = true;
 
-                // How high is the cloud
-                srand((int)time(0) * 10);
-                double height = (rand() % 150);
-                sprite_cloud_1.setPosition(-200, height);
-                cloud_1_is_active = true;
-            }
-            else{
-                // when cloud is active
-                // move it to the right
-                sprite_cloud_1.setPosition(
-                    sprite_cloud_1.getPosition().x + (cloud_1_speed * dt.asSeconds()),
-                    sprite_cloud_1.getPosition().y
-                );
-
-                // Has the cloud reached the right hand edge of the screen?
-                if(sprite_cloud_1.getPosition().x > static_cast<int>(Coordinates::ScreenWidth)){
-                    // Set it up ready to be a whole new cloud next frame
-                    cloud_1_is_active = false;
+                    j += 150;
+                    k += 150;
+                    m += 10;
                 }
-            }
+                else{
+                    // when cloud is active
+                    // move it to the right
+                    clouds[i].setPosition(
+                        clouds[i].getPosition().x + (cloud_speed[i] * dt.asSeconds()),
+                        clouds[i].getPosition().y
+                    );
 
-            // Cloud 2
-            if(!cloud_2_is_active){
-                // How fast is the cloud
-                srand((int)time(0) * 20);
-
-                // Speed is between 0 and 199 pixels
-                cloud_2_speed = (rand() % 200);
-
-                // How high is the cloud
-                srand((int)time(0) * 20);
-                double height = (rand() % 300) - 150;
-                sprite_cloud_2.setPosition(-200, height);
-                cloud_2_is_active = true;
-            }
-            else{
-                // when cloud is active
-                // move it to the right
-                sprite_cloud_2.setPosition(
-                    sprite_cloud_2.getPosition().x + (cloud_2_speed * dt.asSeconds()),
-                    sprite_cloud_2.getPosition().y
-                );
-
-                // Has the cloud reached the right hand edge of the screen?
-                if(sprite_cloud_2.getPosition().x > static_cast<int>(Coordinates::ScreenWidth)){
-                    // Set it up ready to be a whole new cloud next frame
-                    cloud_2_is_active = false;
-                }
-            }
-
-            // Cloud 3
-            if(!cloud_3_is_active){
-                // How fast is the cloud
-                srand((int)time(0) * 30);
-
-                // Speed is between 0 and 199 pixels
-                cloud_3_speed = (rand() % 200);
-
-                // How high is the cloud
-                srand((int)time(0) * 30);
-                double height = (rand() % 450) - 150;
-                sprite_cloud_3.setPosition(-200, height);
-                cloud_3_is_active = true;
-            }
-            else{
-                // when cloud is active
-                // move it to the right
-                sprite_cloud_3.setPosition(
-                    sprite_cloud_3.getPosition().x + (cloud_3_speed * dt.asSeconds()),
-                    sprite_cloud_3.getPosition().y
-                );
-
-                // Has the cloud reached the right hand edge of the screen?
-                if(sprite_cloud_3.getPosition().x > static_cast<int>(Coordinates::ScreenWidth)){
-                    // Set it up ready to be a whole new cloud next frame
-                    cloud_3_is_active = false;
+                    // Has the cloud reached the right hand edge of the screen?
+                    if(clouds[i].getPosition().x > static_cast<int>(Coordinates::ScreenWidth)){
+                        // Set it up ready to be a whole new cloud next frame
+                        clouds_active[i] = false;
+                    }
                 }
             }
 
@@ -470,6 +524,55 @@ int main(){
                 }
             }
 
+            // Handle a flying log
+            if(log_is_active){
+                sprite_log.setPosition(
+                    sprite_log.getPosition().x + (log_speed_x * dt.asSeconds()),
+                    sprite_log.getPosition().y + (log_speed_y * dt.asSeconds())
+                );
+
+                // Has the log reached the right hand edge?
+                if(sprite_log.getPosition().x < -100 ||
+                   sprite_log.getPosition().x > 2000){
+                    // Set it up ready to be a whole new log next frame
+                    log_is_active = false;
+                    sprite_log.setPosition(
+                        static_cast<int>(Coordinates::TreeHorizontalPos),
+                        static_cast<int>(Coordinates::FlyLogVerticalPos)
+                    );
+                }
+            }
+
+            // has the player been squished by a branch?
+            if(branch_positions[5] == player_side){
+                // death
+                paused = true;
+                accept_input = false;
+
+                // Draw the gravestone
+                sprite_rip.setPosition(525, 500);
+
+                // hide the player
+                sprite_player.setPosition(2000, 2000);
+
+                // Change the text of the message
+                message_text.setString("SQUISHED!!");
+
+                // Center it on the screen
+                sf::FloatRect text_rect = message_text.getLocalBounds();
+                message_text.setOrigin(
+                    text_rect.left + text_rect.width / 2.0,
+                    text_rect.top + text_rect.height / 2.0
+                );
+
+                message_text.setPosition(
+                    static_cast<int>(Coordinates::ScreenWidth) / 2.0,
+                    static_cast<int>(Coordinates::ScreenHeight) / 2.0
+                );
+
+                // Play the death sound
+                death.play();
+            }
         }// End if(!paused)
         
 
@@ -481,9 +584,9 @@ int main(){
         window.draw(sprite_background);
 
         // Draw 3 clouds
-        window.draw(sprite_cloud_1);
-        window.draw(sprite_cloud_2);
-        window.draw(sprite_cloud_3);
+        for(int i{0}; i < NUM_CLOUDS; ++i){
+            window.draw(clouds[i]);
+        }
 
         // Draw the branches
         for(int i{0}; i < NUM_BRANCHES; ++i){
